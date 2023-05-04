@@ -55,7 +55,7 @@ const addUser = function (user) {
       VALUES ($1, $2, $3)
       RETURNING *;
     `, [user.name, user.email, user.password])
-    .then(res => console.log(res.rows[0]))
+    .then(res => res.rows[0])
     .catch(err => console.log(err.message));
 };
 
@@ -91,17 +91,59 @@ const getAllReservations = function (guest_id, limit = 10) {
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function (options, limit = 10) {
-  return pool
-    .query(`
-      SELECT properties.*, AVG(rating) as average_rating
-        FROM properties
-      LEFT JOIN reviews ON properties.id = property_id
+  const queryParams = [];
+  let queryString = `
+    SELECT properties.*, AVG(rating) as average_rating
+      FROM properties
+      JOIN reviews ON properties.id = property_id
+  `;
+
+  if (options.owner_id) {
+    queryParams.push(`${options.owner_id}`);
+    queryString += `WHERE owner_id = $${queryParams.length}`;
+  }
+
+  if (options.city) {
+    queryParams.push(`%${options.city}%`);
+    queryString += `WHERE city LIKE $${queryParams.length}`;
+  }
+  
+  if (options.minimum_price_per_night) {
+    queryParams.push(`${options.minimum_price_per_night}`);
+    queryString += (queryParams.length === 1)? `WHERE ` : ` AND `;
+    queryString += `cost_per_night >= $${queryParams.length}`;
+  }
+
+  if (options.maximum_price_per_night) {
+    queryParams.push(`${options.maximum_price_per_night}`);
+    queryString += (queryParams.length === 1)? `WHERE ` : ` AND `;
+    queryString += `cost_per_night <= $${queryParams.length}`;
+  }
+  
+    queryString += `
       GROUP BY properties.id
-       LIMIT $1;
-    `, [limit])
+    `;
+
+  if (options.minimum_rating) {
+    queryParams.push(`${options.minimum_rating}`);
+    queryString += `HAVING AVG(rating) >= $${queryParams.length}`;
+  }
+
+  queryParams.push(limit);
+    queryString += `
+      ORDER BY cost_per_night
+      LIMIT $${queryParams.length};
+    `;
+
+  console.log(queryString, queryParams);
+
+  return pool
+    .query(queryString, queryParams)
     .then(res => res.rows)
     .catch(err => console.log(err.message));
 };
+
+//  609 | Frederick Bryan | abigailcontreras@ymail.com | $2a$10$FB/BOAVhpuLvpOREQVmvmezD4ED/.JBIDRh70tGevYzYzQgFId2u.
 
 /**
  * Add a property to the database
