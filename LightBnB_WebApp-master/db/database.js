@@ -17,14 +17,14 @@ const pool = new Pool({
  * @return {Promise<{}>} A promise to the user.
  */
 const getUserWithEmail = function (email) {
-  let resolvedUser = null;
-  for (const userId in users) {
-    const user = users[userId];
-    if (user && email && user.email.toLowerCase() === email.toLowerCase()) {
-      resolvedUser = user;
-    }
-  }
-  return Promise.resolve(resolvedUser);
+  return pool
+    .query(`
+    SELECT *
+      FROM users
+     WHERE email = $1
+    `, [email])
+    .then(res => res.rows[0])
+    .catch(err => console.log(err.message));
 };
 
 /**
@@ -74,7 +74,7 @@ const getAllProperties = function (options, limit = 10) {
       FROM properties
     LEFT JOIN reviews ON properties.id = property_id
     GROUP BY properties.id
-      LIMIT $1
+      LIMIT $1;
     `, [limit])
     .then(res => res.rows)
     .catch(err => console.log(err.message));
