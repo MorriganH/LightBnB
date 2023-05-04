@@ -69,7 +69,13 @@ const getAllReservations = function (guest_id, limit = 10) {
  */
 const getAllProperties = function (options, limit = 10) {
   return pool
-    .query(`SELECT * FROM properties LIMIT $1`, [limit])
+    .query(`
+    SELECT properties.*, AVG(rating) as average_rating
+      FROM properties
+    LEFT JOIN reviews ON properties.id = property_id
+    GROUP BY properties.id
+      LIMIT $1
+    `, [limit])
     .then(res => res.rows)
     .catch(err => console.log(err.message));
 };
